@@ -22,15 +22,17 @@ import java.time.LocalDate
 class MigrationDemoApplication {
 
     @Bean
-    fun routes(repository: PersonRepository) = nest(
-        path("/person"),
-        route(
-            GET("/{id}"),
-            HandlerFunction { ServerResponse.ok().body(repository.findById(it.pathVariable("id").toLong())) })
-            .andRoute(
-                method(HttpMethod.GET),
-                HandlerFunction { ServerResponse.ok().body(repository.findAll()) })
-    )
+    fun routes(repository: PersonRepository): RouterFunction<ServerResponse> {
+        val handler = PersonHandler(repository)
+        return nest(
+            path("/person"),
+                route(
+                        GET("/{id}"),
+                        HandlerFunction { handler.readOne(it) })
+                .andRoute(
+                        method(HttpMethod.GET),
+                        HandlerFunction { handler.readAll(it) })
+    )}
 }
 
 @Configuration
@@ -40,6 +42,12 @@ class DataConfiguration : AbstractR2dbcConfiguration() {
         .inMemory("testdb")
         .username("sa")
         .build())
+}
+
+class PersonHandler(private val personRepository: PersonRepository) {
+    fun readAll(request: ServerRequest) = ServerResponse.ok().body(personRepository.findAll())
+    fun readOne(request: ServerRequest) = ServerResponse.ok().body(personRepository.findById(request.pathVariable("id").toLong()))
+
 }
 
 fun main(args: Array<String>) {
