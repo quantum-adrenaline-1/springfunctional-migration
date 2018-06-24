@@ -4,17 +4,34 @@ import io.r2dbc.h2.H2ConnectionConfiguration
 import io.r2dbc.h2.H2ConnectionFactory
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
+import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.data.annotation.Id
 import org.springframework.data.r2dbc.config.AbstractR2dbcConfiguration
 import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories
 import org.springframework.data.repository.reactive.ReactiveCrudRepository
-import org.springframework.web.bind.annotation.*
+import org.springframework.http.HttpMethod
+import org.springframework.web.reactive.function.server.*
+import org.springframework.web.reactive.function.server.RequestPredicates.*
+import org.springframework.web.reactive.function.server.RouterFunctions.nest
+import org.springframework.web.reactive.function.server.RouterFunctions.route
 import java.time.LocalDate
 
 @SpringBootApplication
 @EnableR2dbcRepositories
-class MigrationDemoApplication
+class MigrationDemoApplication {
+
+    @Bean
+    fun routes(repository: PersonRepository) = nest(
+        path("/person"),
+        route(
+            GET("/{id}"),
+            HandlerFunction { ServerResponse.ok().body(repository.findById(it.pathVariable("id").toLong())) })
+            .andRoute(
+                method(HttpMethod.GET),
+                HandlerFunction { ServerResponse.ok().body(repository.findAll()) })
+    )
+}
 
 @Configuration
 class DataConfiguration : AbstractR2dbcConfiguration() {
@@ -27,16 +44,6 @@ class DataConfiguration : AbstractR2dbcConfiguration() {
 
 fun main(args: Array<String>) {
     runApplication<MigrationDemoApplication>(*args)
-}
-
-@RestController
-class PersonController(private val personRepository: PersonRepository) {
-
-    @GetMapping("/person")
-    fun readAll() = personRepository.findAll()
-
-    @GetMapping("/person/{id}")
-    fun readOne(@PathVariable id: Long) = personRepository.findById(id)
 }
 
 class Person(@Id val id: Long, val firstName: String, val lastName: String, val birthdate: LocalDate? = null)
