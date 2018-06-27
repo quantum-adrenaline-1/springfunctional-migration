@@ -2,10 +2,8 @@ package ch.frankel.blog.springfu.migrationdemo
 
 import io.r2dbc.h2.H2ConnectionConfiguration
 import io.r2dbc.h2.H2ConnectionFactory
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
-import org.springframework.context.support.GenericApplicationContext
 import org.springframework.context.support.beans
 import org.springframework.data.annotation.Id
 import org.springframework.data.r2dbc.config.AbstractR2dbcConfiguration
@@ -15,11 +13,7 @@ import java.time.LocalDate
 import java.util.*
 
 @SpringBootApplication
-class MigrationDemoApplication {
-
-    @Autowired
-    fun register(ctx: GenericApplicationContext) = beans().initialize(ctx)
-}
+class MigrationDemoApplication
 
 fun beans() = beans {
     bean<DataConfiguration>()
