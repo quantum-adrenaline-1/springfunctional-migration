@@ -8,8 +8,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.data.annotation.Id
 import org.springframework.data.r2dbc.config.AbstractR2dbcConfiguration
-import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories
-import org.springframework.data.repository.reactive.ReactiveCrudRepository
+import org.springframework.data.r2dbc.function.DatabaseClient
 import org.springframework.http.HttpMethod
 import org.springframework.web.reactive.function.server.*
 import org.springframework.web.reactive.function.server.RequestPredicates.*
@@ -18,21 +17,21 @@ import org.springframework.web.reactive.function.server.RouterFunctions.route
 import java.time.LocalDate
 
 @SpringBootApplication
-@EnableR2dbcRepositories
 class MigrationDemoApplication {
 
     @Bean
-    fun routes(repository: PersonRepository): RouterFunction<ServerResponse> {
-        val handler = PersonHandler(repository)
+    fun routes(client: DatabaseClient): RouterFunction<ServerResponse> {
+        val handler = PersonHandler(PersonRepository(client))
         return nest(
             path("/person"),
-                route(
-                        GET("/{id}"),
-                        HandlerFunction(handler::readOne))
+            route(
+                GET("/{id}"),
+                HandlerFunction(handler::readOne))
                 .andRoute(
-                        method(HttpMethod.GET),
-                        HandlerFunction(handler::readAll))
-    )}
+                    method(HttpMethod.GET),
+                    HandlerFunction(handler::readAll))
+        )
+    }
 }
 
 @Configuration
@@ -56,4 +55,14 @@ fun main(args: Array<String>) {
 
 class Person(@Id val id: Long, val firstName: String, val lastName: String, val birthdate: LocalDate? = null)
 
-interface PersonRepository : ReactiveCrudRepository<Person, Long>
+class PersonRepository(private val client: DatabaseClient) {
+
+    fun findAll() = client.select().from(Person::class.java).fetch().all()
+
+    fun findById(id: Long) = client.execute()
+        .sql("SELECT * FROM PERSON WHERE ID = $1")
+        .bind(0, id)
+        .`as`(Person::class.java)
+        .fetch()
+        .one()
+}
