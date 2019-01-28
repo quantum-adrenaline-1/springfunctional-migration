@@ -5,17 +5,12 @@ import io.r2dbc.h2.H2ConnectionFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.runApplication
-import org.springframework.context.annotation.Bean
 import org.springframework.context.support.GenericApplicationContext
 import org.springframework.context.support.beans
 import org.springframework.data.annotation.Id
 import org.springframework.data.r2dbc.config.AbstractR2dbcConfiguration
 import org.springframework.data.r2dbc.function.DatabaseClient
-import org.springframework.http.HttpMethod
 import org.springframework.web.reactive.function.server.*
-import org.springframework.web.reactive.function.server.RequestPredicates.*
-import org.springframework.web.reactive.function.server.RouterFunctions.nest
-import org.springframework.web.reactive.function.server.RouterFunctions.route
 import java.time.LocalDate
 import java.util.*
 
@@ -24,26 +19,23 @@ class MigrationDemoApplication {
 
     @Autowired
     fun register(ctx: GenericApplicationContext) = beans().initialize(ctx)
-
-    @Bean
-    fun routes(client: DatabaseClient): RouterFunction<ServerResponse> {
-        val handler = PersonHandler(PersonRepository(client))
-        return nest(
-            path("/person"),
-            route(
-                GET("/{id}"),
-                HandlerFunction(handler::readOne))
-                .andRoute(
-                    method(HttpMethod.GET),
-                    HandlerFunction(handler::readAll))
-        )
-    }
 }
 
 fun beans() = beans {
     bean<DataConfiguration>()
     bean {
         ref<AbstractR2dbcConfiguration>().databaseClient()
+    }
+    bean {
+        routes(ref())
+    }
+}
+
+fun routes(client: DatabaseClient) = router {
+    val handler = PersonHandler(PersonRepository(client))
+    "/person".nest {
+        GET("/{id}", handler::readOne)
+        GET("/", handler::readAll)
     }
 }
 
