@@ -2,26 +2,33 @@ package ch.frankel.blog.springfu.migrationdemo
 
 import io.r2dbc.h2.H2ConnectionConfiguration
 import io.r2dbc.h2.H2ConnectionFactory
-import org.springframework.boot.autoconfigure.SpringBootApplication
-import org.springframework.boot.runApplication
-import org.springframework.context.support.beans
+import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.data.annotation.Id
 import org.springframework.data.r2dbc.config.AbstractR2dbcConfiguration
 import org.springframework.data.r2dbc.function.DatabaseClient
+import org.springframework.fu.kofu.r2dbc.r2dbcH2
+import org.springframework.fu.kofu.web.server
+import org.springframework.fu.kofu.webApplication
 import org.springframework.web.reactive.function.server.*
-import java.time.LocalDate
 import java.util.*
 
-@SpringBootApplication
-class MigrationDemoApplication
-
-fun beans() = beans {
-    bean<DataConfiguration>()
-    bean {
-        ref<AbstractR2dbcConfiguration>().databaseClient()
+val app = webApplication {
+    beans {
+        bean<DataConfiguration>()
+        bean<PersonRepository>()
+        bean {
+            routes(ref())
+        }
     }
-    bean {
-        routes(ref())
+    r2dbcH2()
+    listener<ApplicationReadyEvent> {
+        ref<PersonRepository>().initialize()
+    }
+    server {
+        port = 8080
+        codecs {
+            jackson()
+        }
     }
 }
 
@@ -54,14 +61,31 @@ class PersonHandler(private val personRepository: PersonRepository) {
 }
 
 fun main(args: Array<String>) {
-    runApplication<MigrationDemoApplication>(*args) {
-        addInitializers(beans())
-    }
+    app.run(args)
 }
 
-class Person(@Id val id: Long, val firstName: String, val lastName: String, val birthdate: LocalDate? = null)
+class Person(@Id val id: Long, val firstName: String, val lastName: String, val birthdate: String? = null)
 
 class PersonRepository(private val client: DatabaseClient) {
+
+    fun initialize() {
+        client.execute().sql(
+            """CREATE TABLE IF NOT EXISTS PERSON (
+  ID            BIGINT      NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  FIRST_NAME    VARCHAR(50) NOT NULL,
+  LAST_NAME     VARCHAR(50) NOT NULL,
+  BIRTHDATE     DATE
+);""").then()
+            .then(save(Person(1, "John", "Doe", "1970-01-01")))
+            .then(save(Person(2, "Jane", "Doe", "1970-01-01")))
+            .then(save(Person(3, "Brian", "Goetz")))
+            .block()
+    }
+
+    fun save(person: Person) = client.insert()
+        .into(Person::class.java)
+        .using(person)
+        .then()
 
     fun findAll() = client.select().from(Person::class.java).fetch().all()
 
