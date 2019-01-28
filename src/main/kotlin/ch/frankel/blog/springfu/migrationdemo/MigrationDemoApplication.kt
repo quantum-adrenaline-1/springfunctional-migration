@@ -38,17 +38,13 @@ class MigrationDemoApplication {
                     HandlerFunction(handler::readAll))
         )
     }
-
-    @Bean
-    fun client(dataConfiguration: AbstractR2dbcConfiguration) = dataConfiguration.databaseClient(
-        dataConfiguration.reactiveDataAccessStrategy(
-            dataConfiguration.r2dbcMappingContext(Optional.empty(), dataConfiguration.r2dbcCustomConversions()),
-            dataConfiguration.r2dbcCustomConversions()),
-        dataConfiguration.exceptionTranslator())
 }
 
 fun beans() = beans {
     bean<DataConfiguration>()
+    bean {
+        ref<AbstractR2dbcConfiguration>().databaseClient()
+    }
 }
 
 class DataConfiguration : AbstractR2dbcConfiguration() {
@@ -58,6 +54,12 @@ class DataConfiguration : AbstractR2dbcConfiguration() {
         .username("sa")
         .build())
 }
+
+fun AbstractR2dbcConfiguration.databaseClient() = databaseClient(
+    reactiveDataAccessStrategy(
+        r2dbcMappingContext(Optional.empty(), r2dbcCustomConversions()),
+        r2dbcCustomConversions()),
+    exceptionTranslator())
 
 class PersonHandler(private val personRepository: PersonRepository) {
     fun readAll(request: ServerRequest) = ServerResponse.ok().body(personRepository.findAll())
